@@ -8,7 +8,7 @@ Aplicación web estática para verificar si un número de serie de la **Serie B*
 
 Disponible en GitHub Pages:
 
-https://TU-USUARIO.github.io/TU-REPO/
+https://dorellanah.github.io/verificador-billetes-serie-b/
 
 ---
 
