@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verificador Serie B — Bolivia</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0284c7" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --border: #b0bec5;
+      --text: #111827;
+      --muted: #4b5563;
+      --valid: #166534;
+      --valid-bg: #dcfce7;
+      --valid-bd: #86efac;
+      --invalid: #991b1b;
+      --invalid-bg: #fee2e2;
+      --invalid-bd: #fca5a5;
+      --warn: #92400e;
+      --warn-bg: #fef3c7;
+      --warn-bd: #fcd34d;
+      --denom-main: #1a56a0;
+      --denom-dark: #113d7a;
+      --denom-light: #e8f0fb;
+      --denom-scan: #38bdf8;
+    }
+
+    .denom-10 {
+      --denom-main: #0284c7;
+      --denom-dark: #0369a1;
+      --denom-light: #e0f2fe;
+      --denom-scan: #38bdf8;
+    }
+
+    .denom-20 {
+      --denom-main: #d97706;
+      --denom-dark: #b45309;
+      --denom-light: #fffbeb;
+      --denom-scan: #fcd34d;
+    }
+
+    .denom-50 {
+      --denom-main: #7e22ce;
+      --denom-dark: #581c87;
+      --denom-light: #f3e8ff;
+      --denom-scan: #c084fc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Atkinson Hyperlegible', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 48px;
+      transition: background 0.4s ease;
+    }
+
+    header {
+      width: 100%;
+      max-width: 460px;
+      background: var(--denom-main);
+      border-radius: 16px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: background 0.4s ease;
+    }
+
+    .flag-icon {
+      font-size: 2.2rem;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: #bfdbfe;
+      margin-top: 3px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 460px;
+      overflow: hidden;
+    }
+
+    .section-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 16px 16px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .denom-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      padding: 0 16px 16px;
+      border-bottom: 2px solid var(--bg);
+    }
+
+    .denom-btn {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      color: var(--muted);
+      padding: 14px 8px 10px;
+      font-family: 'Atkinson Hyperlegible', Arial, sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all .2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      line-height: 1;
+    }
+
+    .denom-btn .bill-stripe {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      opacity: 0.35;
+      transition: opacity .2s;
+    }
+
+    .denom-btn[data-denom="10"] .bill-stripe {
+      background: #0284c7;
+    }
+
+    .denom-btn[data-denom="20"] .bill-stripe {
+      background: #d97706;
+    }
+
+    .denom-btn[data-denom="50"] .bill-stripe {
+      background: #7e22ce;
+    }
+
+    .denom-btn:hover {
+      border-color: var(--denom-main);
+      color: var(--denom-main);
+    }
+
+    .denom-btn:hover .bill-stripe {
+      opacity: 0.7;
+    }
+
+    .denom-btn.active {
+      background: var(--denom-light);
+      border-color: var(--denom-main);
+      color: var(--denom-dark);
+    }
+
+    .denom-btn.active .bill-stripe {
+      opacity: 1;
+    }
+
+    .viewfinder-wrap {
+      position: relative;
+      background: #1a1a1a;
+      aspect-ratio: 4/3;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    canvas {
+      display: none;
+    }
+
+    .scan-line {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(to right, transparent, var(--denom-scan), transparent);
+      animation: sweep 1.8s ease-in-out infinite;
+    }
+
+    @keyframes sweep {
+      0% {
+        top: 10%;
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 1;
+      }
+
+      90% {
+        opacity: 1;
+      }
+
+      100% {
+        top: 90%;
+        opacity: 0;
+      }
+    }
+
+    .scan-line.active {
+      display: block;
+    }
+
+    .corners {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .corners::before,
+    .corners::after,
+    .corners span::before,
+    .corners span::after {
+      content: '';
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: var(--denom-scan);
+      border-style: solid;
+      opacity: .9;
+    }
+
+    .corners::before {
+      top: 14px;
+      left: 14px;
+      border-width: 4px 0 0 4px;
+    }
+
+    .corners::after {
+      top: 14px;
+      right: 14px;
+      border-width: 4px 4px 0 0;
+    }
+
+    .corners span::before {
+      bottom: 14px;
+      left: 14px;
+      border-width: 0 0 4px 4px;
+    }
+
+    .corners span::after {
+      bottom: 14px;
+      right: 14px;
+      border-width: 0 4px 4px 0;
+    }
+
+    .cam-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #9ca3af;
+      font-size: 1rem;
+    }
+
+    .cam-icon {
+      font-size: 3.5rem;
+    }
+
+    .cam-hint {
+      display: none;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, .65) 0%, transparent 100%);
+      padding: 18px 14px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .cam-hint.active {
+      display: block;
+    }
+
+    .controls {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 2px solid var(--bg);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 18px 16px;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: 'Atkinson Hyperlegible', Arial, sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn:active {
+      transform: scale(.98);
+    }
+
+    .btn-cam {
+      background: var(--denom-main);
+      color: #fff;
+      transition: background 0.4s ease;
+    }
+
+    .btn-cam:hover {
+      background: var(--denom-dark);
+    }
+
+    .btn-scan {
+      background: var(--denom-dark);
+      color: #fff;
+      transition: background 0.4s ease;
+    }
+
+    .btn-scan:hover {
+      filter: brightness(1.15);
+    }
+
+    .btn-scan:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      filter: none;
+    }
+
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0 16px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 2px;
+      background: var(--bg);
+    }
+
+    .manual-wrap {
+      padding: 12px 16px 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .manual-input {
+      flex: 1;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Atkinson Hyperlegible', monospace;
+      font-size: 1.3rem;
+      font-weight: 700;
+      padding: 16px 14px;
+      outline: none;
+      transition: border-color .2s;
+      letter-spacing: 0.1em;
+    }
+
+    .manual-input:focus {
+      border-color: var(--denom-main);
+    }
+
+    .manual-input::placeholder {
+      color: #9ca3af;
+      font-size: 0.95rem;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .btn-verify {
+      background: var(--denom-main);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      font-size: 1.4rem;
+      font-weight: 700;
+      transition: background 0.4s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-verify:hover {
+      background: var(--denom-dark);
+    }
+
+    .result-panel {
+      margin: 0 16px 16px;
+      border-radius: 16px;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeIn .25s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .result-panel.show {
+      display: flex;
+    }
+
+    .result-panel.valid-panel {
+      background: var(--valid-bg);
+      border: 3px solid var(--valid-bd);
+    }
+
+    .result-panel.invalid-panel {
+      background: var(--invalid-bg);
+      border: 3px solid var(--invalid-bd);
+    }
+
+    .result-panel.warn-panel {
+      background: var(--warn-bg);
+      border: 3px solid var(--warn-bd);
+    }
+
+    .result-emoji {
+      font-size: 2.4rem;
+      line-height: 1;
+    }
+
+    .result-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .result-panel.valid-panel .result-title {
+      color: var(--valid);
+    }
+
+    .result-panel.invalid-panel .result-title {
+      color: var(--invalid);
+    }
+
+    .result-panel.warn-panel .result-title {
+      color: var(--warn);
+    }
+
+    .result-serial {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .result-detail {
+      font-size: 1rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .history-wrap {
+      width: 100%;
+      max-width: 460px;
+      margin-top: 20px;
+    }
+
+    .history-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      padding: 0 4px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1rem;
+    }
+
+    .h-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .h-dot.valid {
+      background: var(--valid);
+    }
+
+    .h-dot.invalid {
+      background: var(--invalid);
+    }
+
+    .h-dot.warn {
+      background: var(--warn);
+    }
+
+    .h-serial {
+      font-weight: 700;
+      flex: 1;
+      color: var(--text);
+      letter-spacing: 0.05em;
+    }
+
+    .h-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+      max-width: 380px;
+      line-height: 1.6;
+    }
+
+    footer a {
+      color: var(--denom-main);
+      font-weight: 700;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, .3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b;
+      color: #fff;
+      padding: 14px 22px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      z-index: 998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    }
+
+    .toast.valid-toast {
+      background: #166534;
+    }
+
+    .toast.invalid-toast {
+      background: #991b1b;
+    }
+
+    .toast.warn-toast {
+      background: #92400e;
+    }
+
+    .toast.copy-toast {
+      background: #1e293b;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 999;
+      padding: 0;
+      animation: backdropIn .25s ease;
+    }
+
+    @keyframes backdropIn {
+      from {
+        opacity: 0
+      }
+
+      to {
+        opacity: 1
+      }
+    }
+
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 480px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      animation: slideUp .3s cubic-bezier(.32, 1.2, .5, 1);
+      overflow: hidden;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%)
+      }
+
+      to {
+        transform: translateY(0)
+      }
+    }
+
+    .modal-header {
+      padding: 20px 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .modal-header-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .modal-header h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .modal-header p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-section {
+      margin-bottom: 20px;
+    }
+
+    .modal-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .modal-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    .modal-section p {
+      font-size: 0.95rem;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .modal-section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .modal-highlight {
+      background: #f0f9ff;
+      border-left: 3px solid #0284c7;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: #0369a1;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-top: 8px;
+    }
+
+    .modal-scroll-hint {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 6px 0 2px;
+      flex-shrink: 0;
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: .5
+      }
+
+      50% {
+        opacity: 1
+      }
+    }
+
+    .modal-scroll-hint.hidden {
+      display: none;
+    }
+
+    .modal-footer {
+      padding: 14px 20px 28px;
+      flex-shrink: 0;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .modal-checkbox-row input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      accent-color: #0284c7;
+      flex-shrink: 0;
+    }
+
+    .modal-checkbox-row span {
+      font-size: 0.92rem;
+      color: var(--text);
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .btn-accept {
+      width: 100%;
+      padding: 16px;
+      background: #94a3b8;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Atkinson Hyperlegible', Arial, sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: not-allowed;
+      transition: background .2s, transform .1s;
+    }
+
+    .btn-accept.enabled {
+      background: #0284c7;
+      cursor: pointer;
+    }
+
+    .btn-accept.enabled:hover {
+      background: #0369a1;
+    }
+
+    .btn-accept.enabled:active {
+      transform: scale(.98);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div class="modal-header-icon">📋</div>
+        <div>
+          <h2 id="modalTitle">Antes de continuar</h2>
+          <p>Lee y acepta los términos de uso</p>
+        </div>
+      </div>
+      <div class="modal-scroll-hint" id="scrollHint">↓ Desplázate para leer todo</div>
+      <div class="modal-body" id="modalBody">
+        <div class="modal-section">
+          <div class="modal-section-title">⚠️ Descargo de Responsabilidad</div>
+
+          <p>Esta aplicación usa reconocimiento óptico de caracteres (OCR) para leer números de serie desde imágenes
+            capturadas por la cámara.</p>
+
+          <p>La verificación se limita únicamente al número de serie correspondiente a la <strong>Serie B</strong>. No
+            se analizan elementos de seguridad físicos ni características oficiales del billete.</p>
+
+          <p>La aplicación <strong>no garantiza la autenticidad del billete</strong> ni determina si es falso.</p>
+
+          <p>La precisión del reconocimiento <strong>no está garantizada</strong>. Los resultados pueden contener
+            errores debido a factores como iluminación, calidad de imagen, enfoque o limitaciones propias del OCR.</p>
+
+          <p>La información generada debe considerarse únicamente como <strong>referencia orientativa</strong>. Ante
+            cualquier duda, verifica siempre el número manualmente en <strong>bcb.gob.bo</strong>.</p>
+
+          <p>El desarrollador no asume responsabilidad por pérdidas, daños o decisiones tomadas a partir de los
+            resultados de esta aplicación.</p>
+
+          <p>Al utilizar esta aplicación, el usuario declara haber leído y comprendido este descargo de responsabilidad,
+            aceptando expresamente que el uso de la herramienta es bajo su propia responsabilidad.</p>
+
+          <p>Si no estás de acuerdo con estos términos, se recomienda no utilizar la aplicación.</p>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">🔒 Privacidad</div>
+          <p>Tu privacidad está protegida:</p>
+          <div class="modal-highlight">
+            🛡️ Todo el procesamiento ocurre <strong>en tu dispositivo</strong>. Las imágenes no se envían a ningún
+            servidor externo, no se almacenan y no se comparte ningún dato personal.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <label class="modal-checkbox-row">
+          <input type="checkbox" id="acceptCheck" onchange="toggleAccept(this)" />
+          <span>He leído y acepto los términos de uso</span>
+        </label>
+        <button class="btn-accept" id="btnAccept" onclick="acceptDisclaimer()" disabled>
+          Entendido, usar la aplicación
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <header>
+    <div class="flag-icon">🇧🇴</div>
+    <div>
+      <h1>Verificador de Billetes Serie B</h1>
+      <p>Billetes de Bs 10, 20 y 50 — Bolivia 2026</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="section-label">1. ¿Qué billete vas a verificar?</div>
+    <div class="denom-bar">
+      <button class="denom-btn active" data-denom="10" onclick="selectDenom(10)">Bs 10<div class="bill-stripe"></div>
+      </button>
+      <button class="denom-btn" data-denom="20" onclick="selectDenom(20)">Bs 20<div class="bill-stripe"></div></button>
+      <button class="denom-btn" data-denom="50" onclick="selectDenom(50)">Bs 50<div class="bill-stripe"></div></button>
+    </div>
+
+    <div class="viewfinder-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="corners"><span></span></div>
+      <div class="scan-line" id="scanLine"></div>
+      <div class="cam-placeholder" id="camPlaceholder">
+        <div class="cam-icon">📷</div>
+        <span>Toca "Activar cámara"</span>
+      </div>
+      <div class="cam-hint" id="camHint">📄 Apunta al número de serie del billete y presiona "Escanear número de serie"
+      </div>
+    </div>
+
+    <div class="section-label">2. Escanear con la cámara</div>
+    <div class="controls">
+      <button class="btn btn-cam" id="camBtn" onclick="startCamera()"><span>📷</span> Activar cámara</button>
+      <button class="btn btn-scan" id="scanBtn" onclick="scanSerial()" disabled><span>🔍</span> Escanear número de
+        serie</button>
+    </div>
+
+    <div class="divider">O ESCRIBIR EL NÚMERO</div>
+
+    <div class="manual-wrap">
+      <input class="manual-input" id="manualInput" type="text" inputmode="numeric" maxlength="14"
+        placeholder="Ej: 091610662B" oninput="cleanInput(this)" onkeydown="if(event.key==='Enter') verifyManual()" />
+      <button class="btn-verify" onclick="verifyManual()" title="Verificar">→</button>
+    </div>
+
+    <div class="result-panel" id="resultPanel">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="result-emoji" id="resultEmoji"></span>
+        <span class="result-title" id="resultTitle"></span>
+      </div>
+      <div class="result-serial" id="resultSerial"></div>
+      <div class="result-detail" id="resultDetail"></div>
+    </div>
+  </div>
+
+  <div class="history-wrap" id="historyWrap" style="display:none;">
+    <div class="history-title">
+      Últimas 10 verificaciones
+      <span style="display:block;font-size:0.78rem;font-weight:400;margin-top:2px;color:#9ca3af;">Toca un número para
+        copiarlo</span>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <footer>
+    App independiente · No envía datos a ningún servidor.<br>
+    Rangos según resolución oficial del BCB (mar-2026).<br>
+    Ante dudas, confirma en
+    <a href="https://www.bcb.gob.bo/?q=content/verificador-de-n%C3%BAmero-de-serie" target="_blank">
+      bcb.gob.bo
+    </a><br><br>
+
+    <em>
+      <strong style="font-size:1.2rem;">
+        Sé el cambio que quieres ver en el mundo.
+      </strong>
+    </em><br>
+
+    <em>
+      <span style="font-size:0.85rem;">
+        Gracias a mi compañera Adriana por ser conmigo. Te amo ❤️
+      </span>
+    </em><br>
+
+    <span style="font-size:0.75rem;color:#9ca3af;margin-top:4px;display:inline-block;">
+      v1.0.0-beta
+    </span>
+  </footer>
+
+  <script>
+    const INVALID_RANGES = {
+      10: [
+        { min: 77100001, max: 77550000 }, { min: 78000001, max: 78450000 }, { min: 78900001, max: 96350000 },
+        { min: 96350001, max: 96800000 }, { min: 96800001, max: 97250000 }, { min: 98150001, max: 98600000 },
+        { min: 104900001, max: 105350000 }, { min: 105350001, max: 105800000 }, { min: 106700001, max: 107150000 },
+        { min: 107600001, max: 108050000 }, { min: 108050001, max: 108500000 }, { min: 109400001, max: 109850000 },
+      ],
+      20: [
+        { min: 87280145, max: 91646549 }, { min: 96650001, max: 97100000 }, { min: 99800001, max: 100250000 },
+        { min: 100250001, max: 100700000 }, { min: 109250001, max: 109700000 }, { min: 110600001, max: 111050000 },
+        { min: 111050001, max: 111500000 }, { min: 111950001, max: 112400000 }, { min: 112400001, max: 112850000 },
+        { min: 112850001, max: 113300000 }, { min: 114200001, max: 114650000 }, { min: 114650001, max: 115100000 },
+        { min: 115100001, max: 115550000 }, { min: 118700001, max: 119150000 }, { min: 119150001, max: 119600000 },
+        { min: 120500001, max: 120950000 },
+      ],
+      50: [
+        { min: 67250001, max: 67700000 }, { min: 69050001, max: 69500000 }, { min: 69500001, max: 69950000 },
+        { min: 69950001, max: 70400000 }, { min: 70400001, max: 70850000 }, { min: 70850001, max: 71300000 },
+        { min: 76310012, max: 85139995 }, { min: 86400001, max: 86850000 }, { min: 90900001, max: 91350000 },
+        { min: 91800001, max: 92250000 },
+      ],
+    };
+
+    let selectedDenom = 10;
+    let cameraActive = false;
+    let toastTimeout = null;
+    let currentStream = null;
+
+    // ─────────────────────────────────────────────
+    // HISTORIAL — persistido en localStorage
+    // ─────────────────────────────────────────────
+    const HISTORY_KEY = 'serie-b-history-v1';
+
+    function loadHistory() {
+      try {
+        return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+      } catch { return []; }
+    }
+
+    function saveHistory(h) {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { }
+    }
+
+    let history = loadHistory();
+
+    document.body.classList.add('denom-10');
+
+    function selectDenom(denom) {
+      selectedDenom = denom;
+      document.body.classList.remove('denom-10', 'denom-20', 'denom-50');
+      document.body.classList.add('denom-' + denom);
+      document.querySelectorAll('.denom-btn').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.denom) === denom));
+      clearResult();
+    }
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const camBtn = document.getElementById('camBtn');
+    const scanBtn = document.getElementById('scanBtn');
+    const scanLine = document.getElementById('scanLine');
+    const placeholder = document.getElementById('camPlaceholder');
+    const camHint = document.getElementById('camHint');
+
+    async function startCamera() {
+      if (cameraActive) {
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+        cameraActive = false;
+        scanBtn.disabled = true;
+        placeholder.style.display = 'flex';
+        camHint.classList.remove('active');
+        camBtn.innerHTML = '<span>📷</span> Activar cámara';
+        camBtn.style.background = '';
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+        });
+        currentStream = stream;
+        video.srcObject = stream;
+        video.style.display = 'block';
+        placeholder.style.display = 'none';
+        camHint.classList.add('active');
+        cameraActive = true;
+        scanBtn.disabled = false;
+        camBtn.innerHTML = '<span>⏹</span> Apagar cámara';
+        camBtn.style.background = '#475569';
+      } catch (err) {
+        showToast('warn', '⚠️ Sin acceso a la cámara');
+        showResult('warn', '⚠️', 'Sin acceso a cámara', 'Usa el ingreso manual.', '');
+      }
+    }
+
+    async function scanSerial() {
+      if (!cameraActive) return;
+      scanLine.classList.add('active');
+      scanBtn.innerHTML = '<div class="spinner"></div> Procesando...';
+      scanBtn.disabled = true;
+      clearResult();
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      try {
+        const { data } = await Tesseract.recognize(canvas, 'eng', {
+          tessedit_char_whitelist: '0123456789AaOoIlBbGgSs'
+        });
+        const cleaned = data.text
+          .replace(/[Oo]/g, '0')
+          .replace(/[Il]/g, '1')
+          .replace(/[Gg]/g, '6')
+          .replace(/[Ss]/g, '5');
+        const match = cleaned.match(/\b(\d{6,12})\s*([AaBb])?\b/);
+        if (!match) {
+          showResult('warn', '⚠️', 'No se detectó número', 'Acerca el billete, mejora la iluminación e intenta de nuevo.', '');
+        } else {
+          const numero = match[1];
+          const serie = match[2] ? match[2].toUpperCase() : null;
+          if (serie === 'A') {
+            showResult('warn', '⚠️', 'Billete Serie A', 'Este billete es Serie A — solo los billetes Serie B están inhabilitados. Este billete es válido.', numero);
+          } else {
+            verify(numero, 'cámara');
+          }
+        }
+      } catch (e) {
+        showResult('warn', '⚠️', 'Error en escaneo', e.message, '');
+      }
+      scanLine.classList.remove('active');
+      scanBtn.innerHTML = '<span>🔍</span> Escanear número de serie';
+      scanBtn.disabled = false;
+    }
+
+    function cleanInput(el) {
+      el.value = el.value.replace(/[^0-9AaBb]/g, '');
+      const digits = el.value.replace(/[AaBb]/g, '');
+      const letter = el.value.match(/[AaBb]/);
+      el.value = letter ? digits + letter[0].toUpperCase() : digits;
+    }
+
+    function verifyManual() {
+      const raw = document.getElementById('manualInput').value.trim().toUpperCase();
+      if (!raw) return;
+      const match = raw.match(/^(\d{6,12})\s*([AB])?$/);
+      if (!match) {
+        showResult('warn', '⚠️', 'Número inválido', 'Ingresa solo dígitos, con A o B opcional al final. Ej: 091610662B', '');
+        return;
+      }
+      const numero = match[1];
+      const serie = match[2] || null;
+      if (serie === 'A') {
+        showResult('warn', '⚠️', 'Billete Serie A', 'Este billete es Serie A — solo los billetes Serie B están inhabilitados. Este billete es válido.', numero);
+      } else {
+        verify(numero, 'manual');
+      }
+      document.getElementById('manualInput').value = '';
+    }
+
+    function verify(serialStr, source) {
+      const num = parseInt(serialStr, 10);
+      const ranges = INVALID_RANGES[selectedDenom];
+      if (isNaN(num) || serialStr.length < 6) {
+        showResult('warn', '⚠️', 'Número inválido', 'El número de serie parece incompleto o incorrecto.', serialStr);
+        return;
+      }
+      const isInvalid = ranges.some(r => num >= r.min && num <= r.max);
+      if (isInvalid) {
+        showResult('invalid', '🚫', 'BILLETE OBSERVADO',
+          `Este número está dentro del rango inhabilitado por el BCB para billetes de Bs ${selectedDenom}. No debe circular.`, serialStr);
+        addHistory(serialStr, 'invalid', `Bs ${selectedDenom}`);
+      } else {
+        showResult('valid', '✅', 'BILLETE VÁLIDO',
+          `El número no figura en los rangos inhabilitados para Bs ${selectedDenom}. Puede circular con normalidad.`, serialStr);
+        addHistory(serialStr, 'valid', `Bs ${selectedDenom}`);
+      }
+    }
+
+    function showResult(type, emoji, title, detail, serial) {
+      const panel = document.getElementById('resultPanel');
+      panel.className = 'result-panel show ' + type + '-panel';
+      document.getElementById('resultEmoji').textContent = emoji;
+      document.getElementById('resultTitle').textContent = title;
+      document.getElementById('resultDetail').textContent = detail;
+      document.getElementById('resultSerial').textContent = serial ? `Serie: ${serial}` : '';
+      showToast(type, `${emoji} ${title}`);
+    }
+
+    function clearResult() {
+      document.getElementById('resultPanel').className = 'result-panel';
+    }
+
+    function addHistory(serial, type, label) {
+      history.unshift({ serial, type, label });
+      if (history.length > 10) history.pop();
+      saveHistory(history);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      document.getElementById('historyWrap').style.display = 'block';
+      document.getElementById('historyList').innerHTML = history.map(h => `
+        <div class="history-item" onclick="copySerial('${h.serial}')" style="cursor:pointer;">
+          <div class="h-dot ${h.type}"></div>
+          <span class="h-serial">${h.serial}</span>
+          <span class="h-label">${h.label}</span>
+        </div>`).join('');
+    }
+
+    function copySerial(serial) {
+      navigator.clipboard.writeText(serial)
+        .then(() => showToast('copy', '📋 Número copiado'))
+        .catch(() => showToast('warn', '⚠️ No se pudo copiar'));
+    }
+
+    function showToast(type, message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type}-toast show`;
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+
+    const DISCLAIMER_KEY = 'serie-b-disclaimer-v1';
+
+    function initDisclaimer() {
+      if (!localStorage.getItem(DISCLAIMER_KEY)) {
+        document.getElementById('modalBackdrop').classList.remove('hidden');
+        const body = document.getElementById('modalBody');
+        body.addEventListener('scroll', () => {
+          if (body.scrollTop > 20) document.getElementById('scrollHint').classList.add('hidden');
+        }, { passive: true });
+      }
+    }
+
+    function toggleAccept(checkbox) {
+      const btn = document.getElementById('btnAccept');
+      btn.disabled = !checkbox.checked;
+      btn.classList.toggle('enabled', checkbox.checked);
+    }
+
+    function acceptDisclaimer() {
+      localStorage.setItem(DISCLAIMER_KEY, new Date().toISOString());
+      const backdrop = document.getElementById('modalBackdrop');
+      backdrop.style.animation = 'backdropIn .2s ease reverse';
+      setTimeout(() => backdrop.classList.add('hidden'), 200);
+    }
+
+    initDisclaimer();
+
+    // Renderizar historial guardado al iniciar
+    if (history.length > 0) renderHistory();
+  </script>
+</body>
+
+</html>

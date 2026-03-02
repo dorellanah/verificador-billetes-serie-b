@@ -1,0 +1,23 @@
+{
+  "name": "Verificador Serie B — Bolivia",
+  "short_name": "Verificador Serie B",
+  "description": "Verifica si un billete boliviano Serie B está inhabilitado por el BCB",
+  "start_url": "/verificador-billetes-serie-b/",
+  "scope": "/verificador-billetes-serie-b/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0f4f8",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "/verificador-billetes-serie-b/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/verificador-billetes-serie-b/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
